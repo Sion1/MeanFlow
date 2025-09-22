@@ -36,11 +36,11 @@ def center_crop_arr(pil_image, image_size):
 
 
 if __name__ == '__main__':
-    n_epoch = 20
+    n_epoch = 800
     device = "cuda" if torch.cuda.is_available() else "cpu"
     batch_size = 64
     image_size = 256
-    train_path = '/home/jerry/Projects/Dataset/imagenet/train'
+    train_path = '/radish/xl/DATASET/CUB/CUB_200_2011/images'
 
     os.makedirs('images', exist_ok=True)
     os.makedirs('checkpoints', exist_ok=True)
@@ -69,14 +69,14 @@ if __name__ == '__main__':
         dim=384,
         depth=8,
         num_heads=6,
-        num_classes=1000,
+        num_classes=200,
     ).to(accelerator.device)
 
     optimizer = torch.optim.AdamW(model.parameters(), lr=1e-4, weight_decay=0.0)
 
     meanflow = MeanFlow(channels=4,
                         image_size=32,
-                        num_classes=1000,
+                        num_classes=200,
                         normalizer=['mean_std', 0.0, 1/latent_factor],
                         flow_ratio=0.50,
                         time_dist=['lognorm', -0.4, 1.0],
@@ -93,6 +93,7 @@ if __name__ == '__main__':
 
     log_step = 1000
     sample_step = 1000
+    save_step = 10000
 
     for e in range(n_epoch):
         model.train()
@@ -136,7 +137,7 @@ if __name__ == '__main__':
                     model_module = model.module if hasattr(model, 'module') else model
                     z = meanflow.sample_each_class(model_module,
                                                    n_per_class=1,
-                                                   classes=[157, 281, 1, 404, 805])
+                                                   classes=[157, 123, 1, 25, 65])
                     # decode back to pixel domain
                     with torch.no_grad():
                         z = vae.decode(z).sample
@@ -146,6 +147,10 @@ if __name__ == '__main__':
                     save_image(log_img, img_save_path)
                 accelerator.wait_for_everyone()
                 model.train()
+
+            if global_step % save_step == 0:
+                ckpt_path = f"checkpoints/step_{global_step}.pt"
+                accelerator.save(model_module.state_dict(), ckpt_path)
 
     if accelerator.is_main_process:
         ckpt_path = f"checkpoints/step_{global_step}.pt"
