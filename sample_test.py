@@ -5,7 +5,6 @@ from models.dit import MFDiT
 from meanflow import MeanFlow
 import os
 
-#test
 
 if __name__ == '__main__':
     device = "cuda" if torch.cuda.is_available() else "cpu"
