@@ -4,6 +4,7 @@ from einops import rearrange
 from functools import partial
 import numpy as np
 
+# test command
 
 class Normalizer:
     # minmax for raw image, mean_std for vae latent
