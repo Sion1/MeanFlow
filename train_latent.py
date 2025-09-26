@@ -78,7 +78,7 @@ if __name__ == '__main__':
                         image_size=32,
                         num_classes=200,
                         normalizer=['mean_std', 0.0, 1/latent_factor],
-                        flow_ratio=0.50,
+                        flow_ratio=0.75, # as suggested, from 0.50 -> 0.75
                         time_dist=['lognorm', -0.4, 1.0],
                         cfg_ratio=0.10,
                         cfg_scale=2.0,
@@ -86,6 +86,11 @@ if __name__ == '__main__':
                         cfg_uncond='u')
 
     model, vae, optimizer, train_dataloader = accelerator.prepare(model, vae, optimizer, train_dataloader)
+
+    # --- load ckpt ---
+    ckpt_path = "checkpoints/step_60000.0.pt"  # change to your ckpt
+    state_dict = torch.load(ckpt_path, map_location=device)
+    model.load_state_dict(state_dict)  # strict=True by default
 
     global_step = 0.0
     losses = 0.0
@@ -149,9 +154,9 @@ if __name__ == '__main__':
                 model.train()
 
             if global_step % save_step == 0:
-                ckpt_path = f"checkpoints/step_{global_step}.pt"
+                ckpt_path = f"checkpoints/l1_loss/step_{global_step}.pt"
                 accelerator.save(model_module.state_dict(), ckpt_path)
 
     if accelerator.is_main_process:
-        ckpt_path = f"checkpoints/step_{global_step}.pt"
+        ckpt_path = f"checkpoints/l1_loss/step_{global_step}.pt"
         accelerator.save(model_module.state_dict(), ckpt_path)

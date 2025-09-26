@@ -4,8 +4,6 @@ from einops import rearrange
 from functools import partial
 import numpy as np
 
-# test command
-####
 
 class Normalizer:
     # minmax for raw image, mean_std for vae latent
@@ -43,6 +41,17 @@ class Normalizer:
 
 def stopgrad(x):
     return x.detach()
+
+def adaptive_l1_loss(error, gamma=0.5, c=1e-3):
+    """
+    Adaptive L1 loss: sg(w) * ||Δ||_1, where
+        w = 1 / (||Δ||_1 + c)^p, p = 1 - gamma
+    """
+    delta_abs = torch.mean(error.abs(), dim=(1, 2, 3), keepdim=False)
+    p = 1.0 - gamma
+    w = 1.0 / (delta_abs + c).pow(p)
+    loss = delta_abs  # ||Δ||_1
+    return (stopgrad(w) * loss).mean()
 
 
 def adaptive_l2_loss(error, gamma=0.5, c=1e-3):
@@ -175,6 +184,8 @@ class MeanFlow:
 
         error = u - stopgrad(u_tgt)
         loss = adaptive_l2_loss(error)
+        # changed to l1 loss
+        # loss = adaptive_l1_loss(error)  # <-- p=1 version
         # loss = F.mse_loss(u, stopgrad(u_tgt))
 
         mse_val = (stopgrad(error) ** 2).mean()
