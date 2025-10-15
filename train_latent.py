@@ -36,14 +36,17 @@ def center_crop_arr(pil_image, image_size):
 
 
 if __name__ == '__main__':
-    n_epoch = 800
+    n_epoch = 1600
     device = "cuda" if torch.cuda.is_available() else "cpu"
     batch_size = 64
     image_size = 256
     train_path = '/radish/xl/DATASET/CUB/CUB_200_2011/images'
 
-    os.makedirs('images', exist_ok=True)
-    os.makedirs('checkpoints', exist_ok=True)
+    experiment_setting = 'without_meanflow_resume_441k'
+
+    os.makedirs(f'{experiment_setting}', exist_ok=True)
+    os.makedirs(f'images/{experiment_setting}', exist_ok=True)
+    os.makedirs(f'checkpoints/{experiment_setting}', exist_ok=True)
     accelerator = Accelerator(mixed_precision='fp16')
 
     transform = T.Compose([
@@ -78,7 +81,7 @@ if __name__ == '__main__':
                         image_size=32,
                         num_classes=200,
                         normalizer=['mean_std', 0.0, 1/latent_factor],
-                        flow_ratio=0.75, # as suggested, from 0.50 -> 0.75
+                        flow_ratio=1.0, # as suggested, from 0.50 -> 0.75
                         time_dist=['lognorm', -0.4, 1.0],
                         cfg_ratio=0.10,
                         cfg_scale=2.0,
@@ -88,7 +91,7 @@ if __name__ == '__main__':
     model, vae, optimizer, train_dataloader = accelerator.prepare(model, vae, optimizer, train_dataloader)
 
     # --- load ckpt ---
-    ckpt_path = "checkpoints/step_60000.0.pt"  # change to your ckpt
+    ckpt_path = "checkpoints/without_meanflow_resume_147.2k/step_294400.0.pt"  # change to your ckpt
     state_dict = torch.load(ckpt_path, map_location=device)
     model.load_state_dict(state_dict)  # strict=True by default
 
@@ -131,7 +134,7 @@ if __name__ == '__main__':
 
                     log_message = f'{current_time}\n{batch_info}    {loss_info}    {lr_info}\n'
 
-                    with open('log.txt', mode='a') as n:
+                    with open(f'{experiment_setting}/log.txt', mode='a') as n:
                         n.write(log_message)
 
                     losses = 0.0
@@ -148,15 +151,15 @@ if __name__ == '__main__':
                         z = vae.decode(z).sample
                     z = z * 0.5 + 0.5
                     log_img = make_grid(z, nrow=10)
-                    img_save_path = f"images/step_{global_step}.png"
+                    img_save_path = f"images/{experiment_setting}/step_{global_step}.png"
                     save_image(log_img, img_save_path)
                 accelerator.wait_for_everyone()
                 model.train()
 
             if global_step % save_step == 0:
-                ckpt_path = f"checkpoints/l1_loss/step_{global_step}.pt"
+                ckpt_path = f"checkpoints/{experiment_setting}/step_{global_step}.pt"
                 accelerator.save(model_module.state_dict(), ckpt_path)
 
     if accelerator.is_main_process:
-        ckpt_path = f"checkpoints/l1_loss/step_{global_step}.pt"
+        ckpt_path = f"checkpoints/{experiment_setting}/step_{global_step}.pt"
         accelerator.save(model_module.state_dict(), ckpt_path)
